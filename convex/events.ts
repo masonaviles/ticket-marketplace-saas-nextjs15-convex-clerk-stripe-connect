@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { DURATIONS, WAITING_LIST_STATUS, TICKET_STATUS } from "./constants";
-import { components, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import { processQueue } from "./waitingList";
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 
@@ -142,7 +142,13 @@ export const joinWaitingList = mutation({
     if (!event) throw new Error("Event not found");
 
     // Check if there are any available tickets right now
-    const { available } = await checkAvailability(ctx, { eventId });
+    const { available } = await ctx.runQuery(api.events.checkAvailability, { eventId }) as {
+      available: boolean;
+      availableSpots: number;
+      totalTickets: number;
+      purchasedCount: number;
+      activeOffers: number;
+    };
 
     const now = Date.now();
 
@@ -263,7 +269,7 @@ export const purchaseTicket = mutation({
 
       console.log("Processing queue for next person");
       // Process queue for next person
-      await processQueue(ctx, { eventId });
+      await ctx.runMutation(api.waitingList.processQueue, { eventId });
 
       console.log("Purchase ticket completed successfully");
     } catch (error) {
